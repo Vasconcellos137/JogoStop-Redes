@@ -116,7 +116,7 @@ def iniciarServidor():
             LETRA = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ") #".choice()" -> serve p sortear alguma letra aleatória dentro da lista 
             print(f"Letra sorteada: {LETRA}")
 
-            # Libera jogadores, um por um
+            # Libera jogadores, um por um, por isso percorre
             for i in range(n_jogadores):
                 semaforo_inicio.release()
 
