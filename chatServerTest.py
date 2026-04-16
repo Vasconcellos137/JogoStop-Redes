@@ -14,7 +14,7 @@ LETRA = " " #guardar letra sorteada
 # Dados d jogadores
 nomes = [""] * n_jogadores #cria lista c/ quant d jogadores certa
 enderecos = [None] * n_jogadores #guarda IP dos jogadores. "None" -> cria espaço na memória
-respostas = [{} for i in range(n_jogadores)] #cria espaço p guardar infos diversas
+respostas = [{} for i in range(n_jogadores)] #cria espaço p guardar infos diversas, esse tipo d lista é como um registro, possui categorias para cada coisa  
 pontuacoes = [0] * n_jogadores #cria lista p guadar pontos p cada jogador
 
 # Sincronização
@@ -29,8 +29,8 @@ def imprimirMsg(msg, nome, addr):
     print(f"[{hora}] {nome} ({addr[0]}): {msg}") #printa as infos hr, nome e IP junto à msg 
 
 
-def atenderCliente(conn, addr, tid):
-    global respostas
+def atenderCliente(conn, addr, tid): #tid -> pos do jogador na lista, ordem d qm joga 1°
+    global respostas #"global" serve p poder usar os valores d variavel q está fora d função
  
     with conn:
         # Recebe nome primeiro
@@ -53,7 +53,6 @@ def atenderCliente(conn, addr, tid):
             imprimirMsg(data, nome, addr)
 
             #Divide a msg do jogador p ficar certo na lista, cada coisa em seu lugar
-            # Exemplo esperado: CEP=Toledo;NOME=Tiago
             respostas_jogador = {}
             for item in data.split(";"):
                 chave, valor = item.split("=")
@@ -66,30 +65,30 @@ def atenderCliente(conn, addr, tid):
             # Avisa que terminou
             semaforo_fim[tid].release()
 
-            # Espera resultado
-            resultado = conn.recv(1024)  # só pra sincronizar
+            # Espera resultado do server p continuar
+            resultado = conn.recv(1024)  
 
         # Envia placar final
-        vencedor = nomes[pontuacoes.index(max(pontuacoes))]
-        conn.sendall(f"FINAL:{pontuacoes};VENCEDOR:{vencedor}".encode())
+        vencedor = nomes[pontuacoes.index(max(pontuacoes))] #pega lista d nomes e pontos, compara p decobrir qm tem mais pontos dentre eles e imprime o nome 
+        conn.sendall(f"Placar final: {pontuacoes} - Vencedor: {vencedor}".encode()) 
 
 
-def calcular_pontos():
+def calcularPontos():
     global pontuacoes
 
-    categorias = respostas[0].keys()
+    categorias = respostas[0].keys() #pega os nomes das categorias dentre as respostas dos jogadores p poder fazer comparação entre os resultados.
 
     for categoria in categorias:
-        valores = [respostas[i][categoria] for i in range(n_jogadores)]
+        valores = [respostas[i][categoria] for i in range(n_jogadores)] #percorre todas as resp d uma msm categoria, e percorre isso d todos os jogadores
 
         for i in range(n_jogadores):
-            if valores.count(valores[i]) == 1:
-                pontuacoes[i] += 3
+            if valores.count(valores[i]) == 1: #.count() -> conta quantas vezes a msm resposta aparece dentre as respostas percorridas
+                pontuacoes[i] += 3 
             else:
                 pontuacoes[i] += 1
 
 
-def iniciar_servidor():
+def iniciarServidor():
     global LETRA
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
@@ -103,7 +102,7 @@ def iniciar_servidor():
         # Conectar jogadores
         for i in range(n_jogadores):
             conn, addr = server.accept()
-            t = threading.Thread(target=atender_cliente, args=(conn, addr, i))
+            t = threading.Thread(target=atenderCliente, args=(conn, addr, i))
             t.start()
             threads.append(t)
 
@@ -112,13 +111,13 @@ def iniciar_servidor():
             print(f"\n--- Rodada {rodada+1} ---")
 
             respostas.clear()
-            respostas.extend([{} for _ in range(n_jogadores)])
+            respostas.extend([{} for i in range(n_jogadores)]) #".extend()" -> coloca infos dentro da lista d jogadores, paa cada um, um espaço diferente
 
-            LETRA = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+            LETRA = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ") #".choice()" -> serve p sortear alguma letra aleatória dentro da lista 
             print(f"Letra sorteada: {LETRA}")
 
-            # Libera jogadores
-            for _ in range(n_jogadores):
+            # Libera jogadores, um por um
+            for i in range(n_jogadores):
                 semaforo_inicio.release()
 
             # Espera todos responderem
@@ -126,9 +125,9 @@ def iniciar_servidor():
                 sem.acquire()
 
             # Calcula pontos
-            calcular_pontos()
+            calcularPontos()
 
-            print("Pontuação:", pontuacoes)
+            print("Pontuação: ", pontuacoes)
 
         # Espera threads
         for t in threads:
@@ -136,4 +135,4 @@ def iniciar_servidor():
 
 
 if __name__ == "__main__":
-    iniciar_servidor()
+    iniciarServidor()

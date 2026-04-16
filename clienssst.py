@@ -1,6 +1,6 @@
 import socket
 
-HOST = "192.168.245.137"
+HOST = "192.168.247.135"
 PORT = 9002
 
 mensagem = input("[Cliente] Nickname: ")
