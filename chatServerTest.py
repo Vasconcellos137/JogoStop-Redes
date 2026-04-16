@@ -6,32 +6,32 @@ from datetime import datetime #pegar data e hr
 HOST = "0.0.0.0"
 PORT = 9002
 
-n_jogadores = 3
+n_jogadores = 3 #fixo por enquanto
 n_rodadas = 3
 
-LETRA = " "
+LETRA = " " #guardar letra sorteada
 
-# Dados jogadores
+# Dados d jogadores
 nomes = [""] * n_jogadores #cria lista c/ quant d jogadores certa
-enderecos = [None] * n_jogadores
-respostas = [{} for i in range(n_jogadores)] 
-pontuacoes = [0] * n_jogadores
+enderecos = [None] * n_jogadores #guarda IP dos jogadores. "None" -> cria espaço na memória
+respostas = [{} for i in range(n_jogadores)] #cria espaço p guardar infos diversas
+pontuacoes = [0] * n_jogadores #cria lista p guadar pontos p cada jogador
 
 # Sincronização
-semaforo_inicio = threading.Semaphore(0)
-semaforo_fim = [threading.Semaphore(0) for i in range(n_jogadores)]
+semaforo_inicio = threading.Semaphore(0) #inicia em red
+semaforo_fim = [threading.Semaphore(0) for i in range(n_jogadores)] #cria um semáfaro fechado p cada jogador 
 
-lock = threading.Lock()
+lock = threading.Lock() #controlar qm entra, uma chave/fechadura 
+
+#Função p imprimir com hr, nome e ip as msg
+def imprimirMsg(msg, nome, addr):
+    hora = datetime.now().strftime("%H:%M:%S") #pega hr e formata no padrão 
+    print(f"[{hora}] {nome} ({addr[0]}): {msg}") #printa as infos hr, nome e IP junto à msg 
 
 
-def log(msg, nome, addr):
-    hora = datetime.now().strftime("%H:%M:%S")
-    print(f"[{hora}] {nome} ({addr[0]}): {msg}")
-
-
-def atender_cliente(conn, addr, tid):
+def atenderCliente(conn, addr, tid):
     global respostas
-
+ 
     with conn:
         # Recebe nome primeiro
         nome = conn.recv(1024).decode()
@@ -50,15 +50,16 @@ def atender_cliente(conn, addr, tid):
             # Recebe respostas (formato simples)
             data = conn.recv(1024).decode()
 
-            log(data, nome, addr)
+            imprimirMsg(data, nome, addr)
 
+            #Divide a msg do jogador p ficar certo na lista, cada coisa em seu lugar
             # Exemplo esperado: CEP=Toledo;NOME=Tiago
             respostas_jogador = {}
             for item in data.split(";"):
                 chave, valor = item.split("=")
                 respostas_jogador[chave] = valor
 
-            # Protege acesso
+            # Protege acesso, usa "chave" p entrar e fazer o que precisa
             with lock:
                 respostas[tid] = respostas_jogador
 
