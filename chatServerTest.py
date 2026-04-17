@@ -9,7 +9,7 @@ PORT = 9002
 
 n_jogadores = 3 
 n_rodadas = 3
-tempoJogo = 60 #tempo d duração, em seg
+tempoJogo = 60 #tempo d duração, em seg 
 
 LETRA = " " #guardar letra sorteada
 FILA = []
@@ -80,10 +80,10 @@ def atenderCliente(conn, addr, tid): #tid -> pos do jogador na lista, ordem d qm
             # Envia letra sorteada
             conn.sendall(f"LETRA:{LETRA}".encode())
 
-            try:
+            try: #tenta..
             # Recebe respostas
                 data = conn.recv(1024).decode()
-            except: 
+            except: #se der erro…
                 break
 
             #Verifica se fim d rodada == true, novamente
@@ -186,6 +186,7 @@ def iniciarServidor():
         # Espera threads
         for t in threads:
             t.join()
+            t.close()
 
 
 if __name__ == "__main__":
