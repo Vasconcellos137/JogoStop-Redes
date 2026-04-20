@@ -83,7 +83,7 @@ def atenderCliente(conn, addr, tid): #tid -> pos do jogador na lista, ordem d qm
             try: #tenta..
             # Recebe respostas
                 data = conn.recv(1024).decode()
-            except: #se der erro…
+            except: #se der erro..
                 break
 
             #Verifica se fim d rodada == true, novamente
@@ -150,7 +150,7 @@ def iniciarServidor():
             print(f"\n--- Rodada {rodada+1} ---")
 
             respostas.clear()
-            respostas.extend([{} for i in range(n_jogadores)]) #".extend()" -> coloca infos dentro da lista d jogadores, paa cada um, um espaço diferente
+            respostas.extend([{} for i in range(n_jogadores)]) #".extend()" -> coloca infos dentro da lista d jogadores, pra cada um, um espaço diferente
             FILA.clear()
 
             LETRA = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ") #".choice()" -> serve p sortear alguma letra aleatória dentro da lista 
