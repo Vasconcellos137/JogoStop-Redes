@@ -9,10 +9,9 @@ PORT = 9002
 
 n_jogadores = 3 
 n_rodadas = 3
-tempoJogo = 60 #tempo d duração, em seg 
+tempoJogo = 180 #tempo d duração, em seg -> 3min
 
-LETRA = " " #guardar letra sorteada
-FILA = []
+# LETRA = " " #guardar letra sorteada
 
 # Dados d jogadores
 nomes = [""] * n_jogadores #cria lista c/ quant d jogadores certa
@@ -21,8 +20,8 @@ conexoes = [None] * n_jogadores # mesma coisa q ips, mas p guardar a conexão
 respostas = [{} for i in range(n_jogadores)] #cria espaço p guardar infos diversas, esse tipo d lista é como um registro, possui categorias para cada coisa  
 pontuacoes = [0] * n_jogadores #cria lista p guadar pontos p cada jogador
 
-# Sincronização
-semaforo_inicio = threading.Semaphore(0) #inicia 
+# Sincronização das threds
+FILA = []
 SEMAFORO_ACESSO = threading.Semaphore(1) # controla acesso à fila
 SEMAFORO_ITENS = threading.Semaphore(0)  # quantos itens existem
 
@@ -30,13 +29,19 @@ lock = threading.Lock() #controlar qm entra, uma chave/fechadura
 
 #Pra controle d tempo e termino das rodadas
 fim = False     
-tempoInicial = 0
 resposRecv = 0 #contar quantas respostas já foram recebidas -> p saber quando parar a rodada
 
 #P/ imprimir com hr, nome e ip as msg
 def imprimirMsg(msg, nome, addr):
     hora = datetime.now().strftime("%H:%M:%S") #pega hr e formata no padrão 
     print(f"[{hora}] {nome} ({addr[0]}): {msg}") #printa as infos hr, nome e IP junto à msg 
+
+def enviarAtodos(msg):
+    for conn in conexoes:
+        try:
+            conn.sendall((msg + "\n").encode())
+        except:
+            pass
 
 #Fila's métodos
 def produzir(tid, respostas_jogador):
@@ -66,51 +71,41 @@ def atenderCliente(conn, addr, tid): #tid -> pos do jogador na lista, ordem d qm
  
     with conn:
         # Recebe nome primeiro
-        nome = conn.recv(1024).decode("utf-8")
+        nome = conn.recv(1024).decode("utf-8").strip() #decodifica a msg recebida e tira espaços e quebras de linha, msm q \n, \r
         nomes[tid] = nome
-        ips[tid] = addr
+        ips[tid] = addr #guarda o IP do jogador na lista, na posição correspondente ao jogador
+        conexoes[tid] = conn
 
         print(f"{nome} conectado de {addr}")
 
-        for rodada in range(n_rodadas):
-            # Espera início da rodada
-            semaforo_inicio.acquire()
+        while True:
+            try:
+                msg = conn.recv(1024).decode().strip() #tenta enviar msg
+            except:
+                break #se der erro, fecha a conexão e para a thread 
 
-            # Verifica se fim d rodada == true
-            if fim:
+            if not msg: #se a msg for vazia, break
                 break
+            
+            if msg.startswith("RESPOSTAS:"):
+                data = msg.split(":", 1)[1] #divide a msg em 2 partes, usando ":" como base, e pega a parte d resposta
+                imprimirMsg(data, nome, addr)
 
-            # Envia letra sorteada
-            conn.sendall(f"LETRA:{LETRA}".encode())
+                #Divide a msg do jogador p ficar certo na lista, cada coisa em seu lugar
+                respostas_jogador = {}
+                for item in data.split(";"):
+                    if "=" in item:
+                        chave, valor = item.split("=")
+                        respostas_jogador[chave] = valor
 
-            try: #tenta..
-            # Recebe respostas
-                data = conn.recv(1024).decode()
-            except: #se der erro..
-                break
-
-            #Verifica se fim d rodada == true, novamente
-            if fim:
-                break
-
-            imprimirMsg(data, nome, addr)
-
-            #Divide a msg do jogador p ficar certo na lista, cada coisa em seu lugar
-            respostas_jogador = {}
-            for item in data.split(";"):
-                chave, valor = item.split("=")
-                respostas_jogador[chave] = valor
-
-            # jogador produz, coloca na fila
+            # jogador produz, coloca na fila 
             produzir(tid, respostas_jogador)
- 
-            # # primeiro que terminar encerra rodada
-            # with lock:
-            #     if not fim:
-            #         fim = True
 
 def calcularPontos():
     global pontuacoes
+
+    if not respostas[0]:
+        return
 
     categorias = respostas[0].keys() #pega os nomes das categorias dentre as respostas dos jogadores p poder fazer comparação entre os resultados.
 
@@ -123,15 +118,8 @@ def calcularPontos():
             else:
                 pontuacoes[i] += 1
 
-def enviarAtodos(msg):
-    for conn in conexoes:
-        try:
-            conn.sendall(msg.encode())
-        except:
-            pass
-
 def iniciarServidor():
-    global LETRA, fim, tempoInicial, resposRecv
+    global fim, respostas, resposRecv
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         server.bind((HOST, PORT))
@@ -150,27 +138,24 @@ def iniciarServidor():
             t.start()
             threads.append(t)
 
-            time.sleep(10.0) #pequena pausa p evitar q as conexões se misturem
+            time.sleep(1.0)  
 
         # Rodadas
         for rodada in range(n_rodadas):
-            print(f"\n--- Rodada {rodada+1} ---")
+            print(f"\n><>< Rodada {rodada+1} ><><")
 
-            respostas.clear()
+            # respostas.clear()
             respostas.extend([{} for i in range(n_jogadores)]) #".extend()" -> coloca infos dentro da lista d jogadores, pra cada um, um espaço diferente
             FILA.clear()
-
             resposRecv = 0 #reset contador
+            fim = False
 
             LETRA = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ") #".choice()" -> serve p sortear alguma letra aleatória dentro da lista 
-            print(f"Letra sorteada: {LETRA}")
+            print("Letra sorteada:", LETRA)
 
-            fim = False
+            enviarAtodos("Letra: ", LETRA)
+
             tempoInicial = time.time() #guarda o momento em que o jogo começou, começa a contar a partir daí
-
-            # Libera jogadores, um por um, por isso percorre
-            for i in range(n_jogadores):
-                semaforo_inicio.release()
 
             #Espera alguém terminar ou tempo acabar
             while True:
@@ -185,17 +170,17 @@ def iniciarServidor():
                     break
 
                 #Tempinho antes d rodar d novo
-                time.sleep(5.0)
+                time.sleep(1.0)
 
             fim = True
 
             # Calcula pontos
             calcularPontos()
-            print("Pontuação: ", pontuacoes)
+            enviarAtodos("Placar: ", pontuacoes)
 
             # Envia placar final
             vencedor = nomes[pontuacoes.index(max(pontuacoes))] #pega lista d nomes e pontos, compara p decobrir qm tem mais pontos dentre eles e imprime o nome 
-            enviarAtodos(f"PLACAR: {pontuacoes}, VENCEDOR: {vencedor}")
+            enviarAtodos(f"Placar Final: {pontuacoes}, Vencedor: {vencedor}")
 
         # Espera threads
         for t in threads:

@@ -11,21 +11,30 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as cliente:
     cliente.connect((HOST, PORT))
 
     nome = input("Nickname: ")
-    cliente.send(nome.encode())
+    cliente.send((nome + "\n").encode())
 
-    for rodada in range(3): 
+    print("Categorias do jogo:")
+    print("- nome")
+    print("- animal")
+    print("- cidade")
+    print("- objeto")
+    print("Formato de digitação:")
+    print("nome=...;animal=...;cidade=...;objeto=...")
+
+    while True:
+        msg = cliente.recv(1024).decode().strip() #remove espaços e quebras de linha, msm coisa -> \n, \r 
         
-        letra = cliente.recv(1024).decode()
-        print("Letra: ", letra)
+        if msg.startswith("LETRA:"): #verifica se o texto começa com algo específico
+            letra = msg.split(":")[1] #divide o texto em partes, usando como base ":" 
+            print("\nLetra:", letra)
 
-        resposta = input("Respostas: ")
-        cliente.send(resposta.encode())
+            resposta = input("Respostas: ")
+            cliente.send(("RESPOSTAS: ", resposta).encode())
 
-        pontos = cliente.recv(1024).decode()
-        print("Pontuação: ", pontos)
+        elif msg.startswith("Placar parcial:"):
+            print(msg)
 
-
-    final = cliente.recv(1024).decode()
-    print("Placar final: ", final)
-
-    cliente.close()
+        elif msg.startswith("Resultado Final:"):
+            print(msg)
+            break
+       
